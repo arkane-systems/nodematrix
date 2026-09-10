@@ -52,6 +52,10 @@ func Run(ctx context.Context, cfg Config) error {
 	log.Printf("starting: login-vt=%d screensaver-vt=%d idle-timeout=%s tick-rate=%s hostname=%q",
 		cfg.LoginVT, cfg.ScreensaverVT, cfg.IdleTimeout, cfg.TickRate, cfg.Hostname)
 
+	if warning := checkConsoleConfig(); warning != "" {
+		log.Printf("WARNING: %s", warning)
+	}
+
 	vtMgr, err := NewManager(cfg.ScreensaverVT, cfg.LoginVT)
 	if err != nil {
 		return fmt.Errorf("setting up VT manager: %w", err)

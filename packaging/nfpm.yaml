@@ -1,0 +1,44 @@
+name: "nodematrix"
+arch: "amd64"
+platform: "linux"
+version: "${NODEMATRIX_VERSION}"
+maintainer: "Arkane Systems <support@arkane-systems.net>"
+description: |
+  Matrix-style digital rain console screensaver for Kubernetes nodes.
+  Activates on a dedicated virtual terminal after a period of console
+  inactivity, preserving whatever is displayed underneath - including
+  console messages that arrive while it's hidden - and dismisses on any
+  keypress without passing that keypress through to login.
+  .
+  Requires an explicit console=ttyN kernel parameter (not console=tty0 or
+  none at all) to be set separately - see the project README. This package
+  cannot apply that for you, since it's a boot-time kernel parameter.
+homepage: "https://github.com/arkane-systems/nodematrix"
+license: "MIT"
+section: "admin"
+
+depends:
+  - systemd
+
+contents:
+  - src: ../dist/nodematrix
+    dst: /usr/sbin/nodematrix
+    file_info:
+      mode: 0755
+  - src: ../systemd/nodematrix.service
+    dst: /usr/lib/systemd/system/nodematrix.service
+    file_info:
+      mode: 0644
+  - src: ../README.md
+    dst: /usr/share/doc/nodematrix/README.md
+    file_info:
+      mode: 0644
+  - src: ../LICENSE
+    dst: /usr/share/doc/nodematrix/copyright
+    file_info:
+      mode: 0644
+
+scripts:
+  postinstall: postinst.sh
+  preremove: prerm.sh
+  postremove: postrm.sh

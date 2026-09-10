@@ -1,0 +1,14 @@
+[Unit]
+Description=nodematrix console screensaver
+Documentation=https://github.com/arkane-systems/nodematrix
+After=systemd-vconsole-setup.service getty.target
+ConditionPathExists=/dev/tty0
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/nodematrix
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
