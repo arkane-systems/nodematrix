@@ -42,6 +42,11 @@ also checks this itself at startup and logs a warning if it looks wrong,
 but it will still run either way; this is a prerequisite specifically for
 the preservation guarantee to actually hold.
 
+For Ansible users, [`assets/set-console-tty1.yaml`](assets/set-console-tty1.yaml)
+is a ready-made playbook that does this (GRUB-based hosts only) — it edits
+the config and regenerates GRUB but deliberately does not reboot for you;
+that's still on your own schedule.
+
 ## Installing
 
 Install the `.deb` package (see [Building](#building) if you need to build
@@ -63,8 +68,8 @@ package's normal file/service installation.
 ## Configuration
 
 `nodematrix` is configured via command-line flags, set in
-`/lib/systemd/system/nodematrix.service`'s `ExecStart=` line (or an override
-via `systemctl edit nodematrix`):
+`/usr/lib/systemd/system/nodematrix.service`'s `ExecStart=` line (or an
+override via `systemctl edit nodematrix`):
 
 | Flag | Default | Meaning |
 | --- | --- | --- |
@@ -104,3 +109,5 @@ alone just builds the binary into `dist/`; `make clean` removes both.
   VT-switch/evdev/vcs assumptions this design depends on, on real hardware.
 - [`systemd/nodematrix.service`](systemd/nodematrix.service),
   [`packaging/`](packaging) — the systemd unit and `.deb` packaging.
+- [`assets/set-console-tty1.yaml`](assets/set-console-tty1.yaml) — an
+  Ansible playbook for the `console=tty1` prerequisite above.

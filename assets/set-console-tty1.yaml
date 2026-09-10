@@ -1,0 +1,60 @@
+---
+# Prerequisite for the nodematrix console screensaver: pins kernel/systemd
+# console output to tty1 explicitly, rather than letting it default to
+# "whichever VT is currently active" (tty0). Without this, nodematrix
+# switching the foreground VT to its own screensaver VT would redirect
+# console messages onto the screensaver's display instead of preserving them
+# on tty1 for when the screensaver is dismissed.
+#
+# This only edits the GRUB config; it does NOT reboot the node. The new
+# console= parameter has no effect until the node reboots - cordon/drain and
+# reboot affected nodes on your own schedule after running this.
+#
+# `hosts: all` below is a generic default - adjust it to whatever inventory
+# group actually covers your k8s nodes before running this for real.
+- name: Pin console output to tty1 (nodematrix prerequisite)
+  hosts: all
+  tasks:
+
+    - name: Confirm this host uses GRUB
+      stat:
+        path: /etc/default/grub
+      register: grub_default_file
+
+    - name: Fail if GRUB config is not present
+      fail:
+        msg: "/etc/default/grub not found - this playbook only supports GRUB-based hosts."
+      when: not grub_default_file.stat.exists
+
+    - name: Check whether console=tty1 is already set
+      command: grep -q 'GRUB_CMDLINE_LINUX_DEFAULT=.*console=tty1' /etc/default/grub
+      register: console_tty1_present
+      changed_when: false
+      failed_when: false
+
+    - name: Add console=tty1 to GRUB_CMDLINE_LINUX_DEFAULT
+      replace:
+        path: /etc/default/grub
+        regexp: '^(GRUB_CMDLINE_LINUX_DEFAULT=")([^"]*)"$'
+        replace: '\1\2 console=tty1"'
+      when: console_tty1_present.rc != 0
+      register: grub_default_updated
+      become: yes
+
+    - name: Regenerate GRUB configuration (Debian/Ubuntu)
+      command: update-grub
+      when: grub_default_updated.changed and ansible_os_family == "Debian"
+      become: yes
+
+    - name: Regenerate GRUB configuration (RHEL/Fedora)
+      command: grub2-mkconfig -o /boot/grub2/grub.cfg
+      when: grub_default_updated.changed and ansible_os_family == "RedHat"
+      become: yes
+
+    - name: Note that a reboot is required
+      debug:
+        msg: >-
+          console=tty1 was added to the kernel command line but will not take
+          effect until this node reboots. Reboot it yourself once it's safe
+          to do so (cordon/drain first if it's already serving workloads).
+      when: grub_default_updated.changed
