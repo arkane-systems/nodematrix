@@ -8,7 +8,12 @@ const framePadding = 1
 
 const (
 	defaultAlertOff = "console: quiet"
-	defaultAlertOn  = "⚠ console activity while hidden"
+	// A plain asterisk rather than a warning-sign emoji: the same console
+	// font gaps that ruled out kana glyphs (see glyphs.go) also apply here,
+	// and this needs to render correctly on every console with no
+	// font-dependent opt-in - unlike kana, there's no "authenticity" reason
+	// to prefer the fancier glyph.
+	defaultAlertOn = "* console activity while hidden"
 
 	// minLabelValueGap is the smallest number of blank columns Layout will
 	// leave between a StatusLine's label and its right-justified value.
