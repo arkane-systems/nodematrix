@@ -5,12 +5,14 @@ import "math/rand"
 // Screen owns the whole visual state of nodematrix: the rain, the status
 // frame, and the Grid the two are composited into. It is the type the
 // daemon (or a demo tool) drives: create one, feed it status updates as
-// they become known, call Tick on a regular schedule, and write Grid.ANSI()
-// to wherever the frame should actually be displayed.
+// they become known, call Tick on a regular schedule, and write ANSI() to
+// wherever the frame should actually be displayed.
 type Screen struct {
 	Grid   *Grid
 	Matrix *Matrix
 	Frame  *Frame
+
+	diff *DiffRenderer
 }
 
 // NewScreen builds a Screen sized width x height with a status frame
@@ -25,6 +27,7 @@ func NewScreen(width, height int, hostname string, rng *rand.Rand, kanaEnabled b
 		Grid:   NewGrid(width, height),
 		Matrix: NewMatrix(width, height, rng, kanaEnabled),
 		Frame:  f,
+		diff:   NewDiffRenderer(),
 	}
 }
 
@@ -46,11 +49,21 @@ func (s *Screen) SetAlert(alert bool) {
 
 // Tick advances the rain by one animation step and recomposites the grid in
 // the required order: clear, draw rain everywhere except the frame's
-// footprint, then draw the frame on top. Call Grid.ANSI() afterward to get
-// the bytes to display.
+// footprint, then draw the frame on top. Call ANSI() afterward to get the
+// bytes to display.
 func (s *Screen) Tick() {
 	s.Matrix.Tick()
 	s.Grid.Clear()
 	s.Matrix.Render(s.Grid, s.Frame.Rect())
 	s.Frame.Render(s.Grid)
+}
+
+// ANSI returns the bytes needed to bring the terminal from whatever it
+// displayed after the previous call to ANSI (or an unknown state, on the
+// first call) to match the screen's current state - see DiffRenderer. This
+// is the normal way to get output to write to a real terminal/console
+// device; Grid.ANSI (a full, unconditional redraw) remains available
+// directly on the Grid for callers that specifically want that instead.
+func (s *Screen) ANSI() string {
+	return s.diff.Render(s.Grid)
 }

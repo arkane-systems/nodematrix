@@ -187,8 +187,14 @@ func animateUntilKeyPress(ctx context.Context, vtMgr *Manager, screen *render.Sc
 		}
 
 		screen.Tick()
-		if _, err := vtMgr.Write([]byte(screen.Grid.ANSI())); err != nil {
-			return false, fmt.Errorf("writing to screensaver VT: %w", err)
+		// screen.ANSI() only returns bytes for cells that actually changed
+		// since the last call (see render.DiffRenderer) - often nothing,
+		// for large stretches of a typical grid, so skip the write
+		// entirely rather than issuing a zero-byte syscall for no reason.
+		if out := screen.ANSI(); out != "" {
+			if _, err := vtMgr.Write([]byte(out)); err != nil {
+				return false, fmt.Errorf("writing to screensaver VT: %w", err)
+			}
 		}
 	}
 }

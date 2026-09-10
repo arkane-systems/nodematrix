@@ -65,7 +65,7 @@ func main() {
 		select {
 		case <-animTick.C:
 			screen.Tick()
-			fmt.Print(screen.Grid.ANSI())
+			fmt.Print(screen.ANSI())
 		case <-statusTick.C:
 			screen.SetStatus(demoStatusLines(startedAt))
 			alertOn = !alertOn
