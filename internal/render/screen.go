@@ -16,13 +16,14 @@ type Screen struct {
 // NewScreen builds a Screen sized width x height with a status frame
 // titled hostname. rng seeds the rain's randomness — pass a
 // deterministically-seeded *rand.Rand in tests for reproducible output, or
-// one seeded from real entropy in production.
-func NewScreen(width, height int, hostname string, rng *rand.Rand) *Screen {
+// one seeded from real entropy in production. kanaEnabled is forwarded to
+// NewMatrix - see its doc comment for why this defaults to false.
+func NewScreen(width, height int, hostname string, rng *rand.Rand, kanaEnabled bool) *Screen {
 	f := NewFrame(hostname)
 	f.Layout(width, height)
 	return &Screen{
 		Grid:   NewGrid(width, height),
-		Matrix: NewMatrix(width, height, rng),
+		Matrix: NewMatrix(width, height, rng, kanaEnabled),
 		Frame:  f,
 	}
 }

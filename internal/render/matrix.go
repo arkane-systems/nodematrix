@@ -47,7 +47,7 @@ func (c *column) respawn(rng *rand.Rand, height int) {
 
 // newColumn creates a column already part-way through a fall, so the first
 // rendered frame doesn't look artificially empty while columns "start up".
-func newColumn(rng *rand.Rand, height int) *column {
+func newColumn(rng *rand.Rand, height int, kanaEnabled bool) *column {
 	c := &column{
 		glyphChars: make([]rune, height),
 		boldMask:   make([]bool, height),
@@ -59,7 +59,7 @@ func newColumn(rng *rand.Rand, height int) *column {
 	c.headRow = rng.Intn(height+maxLen) - maxLen
 
 	for y := 0; y <= c.headRow && y < height; y++ {
-		r, wide := randomGlyph(rng)
+		r, wide := randomGlyph(rng, kanaEnabled)
 		c.glyphChars[y] = r
 		c.boldMask[y] = rng.Intn(4) == 0
 		c.wideMask[y] = wide
@@ -70,7 +70,7 @@ func newColumn(rng *rand.Rand, height int) *column {
 // tick advances the column by one animation frame. Movement only actually
 // happens once every ticksPerStep calls, which is what lets columns fall at
 // different speeds while all being driven by the same overall frame rate.
-func (c *column) tick(rng *rand.Rand, height int) {
+func (c *column) tick(rng *rand.Rand, height int, kanaEnabled bool) {
 	c.tickCounter++
 	if c.tickCounter < c.ticksPerStep {
 		return
@@ -84,7 +84,7 @@ func (c *column) tick(rng *rand.Rand, height int) {
 	}
 
 	if c.headRow >= 0 && c.headRow < height {
-		r, wide := randomGlyph(rng)
+		r, wide := randomGlyph(rng, kanaEnabled)
 		c.glyphChars[c.headRow] = r
 		c.boldMask[c.headRow] = rng.Intn(4) == 0
 		c.wideMask[c.headRow] = wide
@@ -95,7 +95,7 @@ func (c *column) tick(rng *rand.Rand, height int) {
 	if c.length > 1 && rng.Intn(20) == 0 {
 		row := c.headRow - (1 + rng.Intn(c.length-1))
 		if row >= 0 && row < height {
-			r, wide := randomGlyph(rng)
+			r, wide := randomGlyph(rng, kanaEnabled)
 			c.glyphChars[row] = r
 			c.wideMask[row] = wide
 		}
@@ -110,6 +110,7 @@ type Matrix struct {
 	width, height int
 	columns       []*column
 	rng           *rand.Rand
+	kanaEnabled   bool
 }
 
 // NewMatrix creates a Matrix sized width x height. rng drives all of the
@@ -118,17 +119,23 @@ type Matrix struct {
 // from real entropy for production use. A nil rng is replaced with one seeded
 // from a fixed value, which is convenient for quick manual tries but should
 // not be relied on for anything that wants real randomness.
-func NewMatrix(width, height int, rng *rand.Rand) *Matrix {
+//
+// kanaEnabled controls whether halfwidth katakana is mixed into the rain
+// (see glyphs.go) - default this to false unless the target console's font
+// is confirmed to have those glyphs drawn; plenty of common console fonts,
+// including Debian's default and GNU Unifont as currently packaged, don't,
+// and render them as placeholder boxes instead.
+func NewMatrix(width, height int, rng *rand.Rand, kanaEnabled bool) *Matrix {
 	if width <= 0 || height <= 0 {
 		panic("render: NewMatrix requires positive width and height")
 	}
 	if rng == nil {
 		rng = rand.New(rand.NewSource(1))
 	}
-	m := &Matrix{width: width, height: height, rng: rng}
+	m := &Matrix{width: width, height: height, rng: rng, kanaEnabled: kanaEnabled}
 	m.columns = make([]*column, width)
 	for x := range m.columns {
-		m.columns[x] = newColumn(rng, height)
+		m.columns[x] = newColumn(rng, height, kanaEnabled)
 	}
 	return m
 }
@@ -136,7 +143,7 @@ func NewMatrix(width, height int, rng *rand.Rand) *Matrix {
 // Tick advances every column by one animation frame.
 func (m *Matrix) Tick() {
 	for _, c := range m.columns {
-		c.tick(m.rng, m.height)
+		c.tick(m.rng, m.height, m.kanaEnabled)
 	}
 }
 

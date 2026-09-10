@@ -26,6 +26,7 @@ func main() {
 	tickRate := flag.Duration("tick-rate", 100*time.Millisecond, "animation frame interval (~10fps default; rounded to the nearest 0.1s - a termios read-timeout limitation)")
 	statusInterval := flag.Duration("status-interval", 5*time.Second, "how often status content (uptime, load, etc.) is refreshed while showing")
 	hostname := flag.String("hostname", defaultHostname(), "hostname shown in the frame title")
+	kana := flag.Bool("enable-kana", false, "include halfwidth katakana in the rain - off by default, since not every console font has these glyphs drawn (see the README's console-font prerequisite notes); enable only once confirmed working on the target console")
 	flag.Parse()
 
 	if os.Geteuid() != 0 {
@@ -40,6 +41,7 @@ func main() {
 		TickRate:              *tickRate,
 		StatusRefreshInterval: *statusInterval,
 		Hostname:              *hostname,
+		KanaEnabled:           *kana,
 	}
 
 	// On SIGINT/SIGTERM, daemon.Run restores the login VT before

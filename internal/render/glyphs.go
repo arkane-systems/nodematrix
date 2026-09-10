@@ -8,6 +8,7 @@ import "math/rand"
 //
 //   - asciiGlyphs: ordinary characters, the bulk of cmatrix's own default
 //     character set.
+//
 //   - kanaGlyphs: halfwidth Japanese katakana (Unicode block U+FF66-FF9F),
 //     included for visual authenticity — this is in fact the same character
 //     set the original Matrix films' "code rain" effect was built from.
@@ -18,6 +19,15 @@ import "math/rand"
 //     Cell/wide handling in matrix.go). Halfwidth katakana is guaranteed
 //     single-column everywhere. True hiragana has no halfwidth Unicode form
 //     at all, so it isn't included here for the same reason.
+//
+//     Disabled by default (see randomGlyph's kanaEnabled parameter, and
+//     NewMatrix/NewScreen's kanaEnabled argument): plenty of Linux console
+//     fonts, including Debian's default and even GNU Unifont as currently
+//     packaged, simply don't have kana glyphs drawn at all, rendering as
+//     placeholder boxes instead. Enable it (nodematrix's -enable-kana flag)
+//     once the target console's font is confirmed to render halfwidth
+//     katakana correctly - see the project's console-font prerequisite notes.
+//
 //   - emojiGlyphs: a small, deliberately short list of double-width bonus
 //     characters. Currently disabled (see weightEmoji) — being the only
 //     double-width glyphs in an otherwise all-single-width rain, they stood
@@ -56,15 +66,20 @@ const (
 	weightEmoji = 0
 )
 
-// randomGlyph picks a single rain character using rng, drawing mostly from
-// ASCII and halfwidth katakana with an occasional emoji thrown in. It
-// reports both the rune and whether it is double-width on screen, since the
-// caller (matrix.go) needs to know that to keep column alignment correct.
-func randomGlyph(rng *rand.Rand) (r rune, wide bool) {
-	switch n := rng.Intn(weightASCII + weightKana + weightEmoji); {
+// randomGlyph picks a single rain character using rng, drawing from ASCII
+// and, when kanaEnabled is true, halfwidth katakana too (plus an occasional
+// emoji, currently always disabled - see weightEmoji). It reports both the
+// rune and whether it is double-width on screen, since the caller
+// (matrix.go) needs to know that to keep column alignment correct.
+func randomGlyph(rng *rand.Rand, kanaEnabled bool) (r rune, wide bool) {
+	kanaWeight := 0
+	if kanaEnabled {
+		kanaWeight = weightKana
+	}
+	switch n := rng.Intn(weightASCII + kanaWeight + weightEmoji); {
 	case n < weightASCII:
 		return asciiGlyphs[rng.Intn(len(asciiGlyphs))], false
-	case n < weightASCII+weightKana:
+	case n < weightASCII+kanaWeight:
 		return kanaGlyphs[rng.Intn(len(kanaGlyphs))], false
 	default:
 		return emojiGlyphs[rng.Intn(len(emojiGlyphs))], true

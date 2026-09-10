@@ -38,12 +38,13 @@ func main() {
 	hostname := flag.String("hostname", demoHostname(), "hostname shown in the frame title")
 	alert := flag.Bool("alert", false, "start with the console-activity alert flag set (it auto-toggles every 5s regardless, so both styles are visible)")
 	fps := flag.Float64("fps", 12, "animation frames per second")
+	kana := flag.Bool("kana", false, "include halfwidth katakana in the rain (off by default - not every console font has these glyphs drawn)")
 	flag.Parse()
 
 	w, h := resolveSize(*width, *height)
 
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	screen := render.NewScreen(w, h, *hostname, rng)
+	screen := render.NewScreen(w, h, *hostname, rng, *kana)
 
 	startedAt := time.Now()
 	screen.SetStatus(demoStatusLines(startedAt))

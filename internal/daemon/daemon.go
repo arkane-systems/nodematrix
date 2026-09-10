@@ -35,6 +35,7 @@ type Config struct {
 	TickRate              time.Duration // animation frame interval
 	StatusRefreshInterval time.Duration // how often status content (uptime, load, etc.) is recomputed while showing
 	Hostname              string        // shown in the frame title
+	KanaEnabled           bool          // include halfwidth katakana in the rain; off by default, see render.NewMatrix
 }
 
 // Run drives the idle -> show -> (keypress) -> hide state machine until ctx
@@ -83,7 +84,7 @@ func Run(ctx context.Context, cfg Config) error {
 	log.Printf("screensaver VT ready: %dx%d", width, height)
 
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
-	screen := render.NewScreen(width, height, cfg.Hostname, rng)
+	screen := render.NewScreen(width, height, cfg.Hostname, rng, cfg.KanaEnabled)
 	vcsMon := NewVCSMonitor(cfg.LoginVT)
 
 	for {

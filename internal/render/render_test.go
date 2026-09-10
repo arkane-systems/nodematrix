@@ -37,7 +37,7 @@ func TestGridClear(t *testing.T) {
 func TestMatrixNeverDrawsInsideExcludedRect(t *testing.T) {
 	const width, height = 40, 20
 	rng := rand.New(rand.NewSource(1))
-	m := NewMatrix(width, height, rng)
+	m := NewMatrix(width, height, rng, true)
 	g := NewGrid(width, height)
 	exclude := Rect{X: 10, Y: 5, W: 20, H: 10}
 
@@ -61,7 +61,7 @@ func TestMatrixDeterministicWithSameSeed(t *testing.T) {
 
 	run := func(seed int64) string {
 		rng := rand.New(rand.NewSource(seed))
-		m := NewMatrix(width, height, rng)
+		m := NewMatrix(width, height, rng, true)
 		g := NewGrid(width, height)
 		for i := 0; i < 50; i++ {
 			m.Tick()
@@ -92,11 +92,12 @@ func TestGlyphPoolsCoverExpectedRanges(t *testing.T) {
 	}
 
 	// Emoji are currently disabled (weightEmoji == 0, see glyphs.go), so
-	// randomGlyph should never produce one in normal use.
+	// randomGlyph should never produce one in normal use, regardless of
+	// kanaEnabled.
 	rng := rand.New(rand.NewSource(7))
 	seenKana := false
 	for i := 0; i < 5000; i++ {
-		r, wide := randomGlyph(rng)
+		r, wide := randomGlyph(rng, true)
 		switch {
 		case containsRune(kanaGlyphs, r):
 			seenKana = true
@@ -112,7 +113,19 @@ func TestGlyphPoolsCoverExpectedRanges(t *testing.T) {
 		}
 	}
 	if !seenKana {
-		t.Error("expected at least one kana glyph over 5000 samples")
+		t.Error("expected at least one kana glyph over 5000 samples with kanaEnabled=true")
+	}
+}
+
+// TestRandomGlyphKanaDisabledByDefault covers the opt-in gate itself: with
+// kanaEnabled=false (nodematrix's default, since not every console font has
+// kana glyphs drawn - see glyphs.go), randomGlyph must never produce one.
+func TestRandomGlyphKanaDisabledByDefault(t *testing.T) {
+	rng := rand.New(rand.NewSource(7))
+	for i := 0; i < 5000; i++ {
+		if r, _ := randomGlyph(rng, false); containsRune(kanaGlyphs, r) {
+			t.Fatalf("kana glyph %U produced despite kanaEnabled=false", r)
+		}
 	}
 }
 
@@ -137,7 +150,7 @@ func forceWideGlyph(m *Matrix, x, row int, r rune) {
 
 func TestWideGlyphsGetContinuationMarker(t *testing.T) {
 	const width, height = 10, 5
-	m := NewMatrix(width, height, rand.New(rand.NewSource(1)))
+	m := NewMatrix(width, height, rand.New(rand.NewSource(1)), false)
 	g := NewGrid(width, height)
 
 	forceWideGlyph(m, 3, 2, emojiGlyphs[0])
@@ -153,7 +166,7 @@ func TestWideGlyphsGetContinuationMarker(t *testing.T) {
 
 func TestWideGlyphAtRightEdgeIsSkipped(t *testing.T) {
 	const width, height = 10, 5
-	m := NewMatrix(width, height, rand.New(rand.NewSource(1)))
+	m := NewMatrix(width, height, rand.New(rand.NewSource(1)), false)
 	g := NewGrid(width, height)
 
 	forceWideGlyph(m, width-1, 2, emojiGlyphs[0]) // rightmost column: no room for a continuation cell
@@ -166,7 +179,7 @@ func TestWideGlyphAtRightEdgeIsSkipped(t *testing.T) {
 
 func TestWideGlyphAdjacentToFrameIsSkipped(t *testing.T) {
 	const width, height = 10, 5
-	m := NewMatrix(width, height, rand.New(rand.NewSource(1)))
+	m := NewMatrix(width, height, rand.New(rand.NewSource(1)), false)
 	g := NewGrid(width, height)
 	exclude := Rect{X: 4, Y: 0, W: 3, H: height}
 
@@ -291,7 +304,7 @@ func TestFrameTitleIsBold(t *testing.T) {
 
 func TestScreenTickProducesExpectedANSIOutput(t *testing.T) {
 	rng := rand.New(rand.NewSource(1))
-	s := NewScreen(80, 24, "k8s-node-01", rng)
+	s := NewScreen(80, 24, "k8s-node-01", rng, false)
 	s.SetStatus([]StatusLine{{Label: "uptime", Value: "1h2m"}, {Label: "load", Value: "0.01 0.02 0.03"}})
 	s.SetAlert(true)
 	s.Tick()
