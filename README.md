@@ -15,6 +15,24 @@ out of the way on any keypress.
   kubelet status) and a flag indicating whether console output occurred
   while it was hidden.
 
+## Performance
+
+Measured on real target hardware with `pidstat`, as a fraction of one CPU
+core:
+
+| Phase | CPU |
+| --- | --- |
+| Idle, waiting for the console to go idle | ~0% (blocked in `epoll_wait`, no polling) |
+| Actively animating | ~1% |
+
+The animating figure matters more than it might look: since a node's
+physical/virtual console is rarely watched, once the screensaver triggers on
+a quiet node it can stay in that state for hours or days, making it the
+realistic steady-state cost on most nodes rather than a brief spike. It was
+originally closer to 5% before `internal/render`'s diff-based renderer
+(`DiffRenderer`) started emitting ANSI only for cells that actually changed
+each tick instead of redrawing the whole ~16,000-cell grid every time.
+
 ## Deployment prerequisite: `console=ttyN` kernel parameter
 
 **Before installing, confirm the node's kernel command line sets an
