@@ -21,13 +21,20 @@ import (
 // cleared across reboots, which is the right lifetime for a lock like this.
 const lockPath = "/run/nodematrix.lock"
 
+// vcsCheckInterval is how often the screensaver checks whether anything has
+// been written to the hidden login VT while it's covering it. Console
+// output doesn't happen fast, so there's no benefit to checking anywhere
+// near the animation tick rate.
+const vcsCheckInterval = time.Second
+
 // Config holds the daemon's runtime settings.
 type Config struct {
-	LoginVT       int           // the VT running login (e.g. 1), which is hidden/revealed but never drawn on
-	ScreensaverVT int           // the VT the screensaver renders on (preferred; falls back to a dynamically-allocated one)
-	IdleTimeout   time.Duration // how long the login console must be idle before the screensaver activates
-	TickRate      time.Duration // animation frame interval
-	Hostname      string        // shown in the frame title
+	LoginVT               int           // the VT running login (e.g. 1), which is hidden/revealed but never drawn on
+	ScreensaverVT         int           // the VT the screensaver renders on (preferred; falls back to a dynamically-allocated one)
+	IdleTimeout           time.Duration // how long the login console must be idle before the screensaver activates
+	TickRate              time.Duration // animation frame interval
+	StatusRefreshInterval time.Duration // how often status content (uptime, load, etc.) is recomputed while showing
+	Hostname              string        // shown in the frame title
 }
 
 // Run drives the idle -> show -> (keypress) -> hide state machine until ctx
@@ -77,12 +84,7 @@ func Run(ctx context.Context, cfg Config) error {
 
 	rng := rand.New(rand.NewSource(time.Now().UnixNano()))
 	screen := render.NewScreen(width, height, cfg.Hostname, rng)
-	// Placeholder status content - Phase 3 replaces this with real system
-	// stats, collected on their own refresh timer separate from the
-	// animation tick rate.
-	screen.SetStatus([]render.StatusLine{
-		{Label: "status", Value: "placeholder (Phase 3 adds real stats)"},
-	})
+	vcsMon := NewVCSMonitor(cfg.LoginVT)
 
 	for {
 		log.Printf("waiting for idle (timeout=%s)...", cfg.IdleTimeout)
@@ -104,7 +106,16 @@ func Run(ctx context.Context, cfg Config) error {
 			return fmt.Errorf("activating screensaver VT: %w", err)
 		}
 
-		cancelled, err := animateUntilKeyPress(ctx, vtMgr, screen)
+		// Fresh status and a cleared alert flag every time the screensaver
+		// starts a new hide session - the alert auto-clears on dismiss, so
+		// it should start clean here too rather than carrying over.
+		screen.SetStatus(CollectStatus())
+		screen.SetAlert(false)
+		if err := vcsMon.Reset(); err != nil {
+			log.Printf("could not baseline console-activity monitor: %v", err)
+		}
+
+		cancelled, err := animateUntilKeyPress(ctx, vtMgr, screen, vcsMon, cfg.StatusRefreshInterval)
 		if err != nil {
 			vtMgr.Hide() // best-effort: don't leave the console stuck on the screensaver VT
 			return err
@@ -130,7 +141,16 @@ func Run(ctx context.Context, cfg Config) error {
 // via evdev, and checks ctx between reads - each read is bounded to about
 // one tick interval by PrepareScreensaverTTY, so cancellation is noticed
 // within roughly one animation frame.
-func animateUntilKeyPress(ctx context.Context, vtMgr *Manager, screen *render.Screen) (cancelled bool, err error) {
+//
+// Status content and the console-activity check are both refreshed on
+// their own, much slower cadences than the animation tick, driven by wall
+// clock time rather than a tick count so their actual cadence doesn't drift
+// if the tick rate is reconfigured.
+func animateUntilKeyPress(ctx context.Context, vtMgr *Manager, screen *render.Screen, vcsMon *VCSMonitor, statusInterval time.Duration) (cancelled bool, err error) {
+	lastStatus := time.Now()
+	lastVCSCheck := time.Now()
+	alertTriggered := false
+
 	for {
 		if ctx.Err() != nil {
 			return true, nil
@@ -146,6 +166,19 @@ func animateUntilKeyPress(ctx context.Context, vtMgr *Manager, screen *render.Sc
 
 		if ctx.Err() != nil {
 			return true, nil
+		}
+
+		if time.Since(lastStatus) >= statusInterval {
+			screen.SetStatus(CollectStatus())
+			lastStatus = time.Now()
+		}
+
+		if !alertTriggered && time.Since(lastVCSCheck) >= vcsCheckInterval {
+			if changed, err := vcsMon.Changed(); err == nil && changed {
+				alertTriggered = true
+				screen.SetAlert(true)
+			}
+			lastVCSCheck = time.Now()
 		}
 
 		screen.Tick()

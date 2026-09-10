@@ -24,6 +24,7 @@ func main() {
 	screensaverVT := flag.Int("screensaver-vt", 63, "the VT the screensaver renders on (falls back to a dynamically-allocated VT if unavailable)")
 	idleTimeout := flag.Duration("idle-timeout", 5*time.Minute, "how long the login console must be idle before the screensaver activates")
 	tickRate := flag.Duration("tick-rate", 100*time.Millisecond, "animation frame interval (~10fps default; rounded to the nearest 0.1s - a termios read-timeout limitation)")
+	statusInterval := flag.Duration("status-interval", 5*time.Second, "how often status content (uptime, load, etc.) is refreshed while showing")
 	hostname := flag.String("hostname", defaultHostname(), "hostname shown in the frame title")
 	flag.Parse()
 
@@ -33,11 +34,12 @@ func main() {
 	}
 
 	cfg := daemon.Config{
-		LoginVT:       *loginVT,
-		ScreensaverVT: *screensaverVT,
-		IdleTimeout:   *idleTimeout,
-		TickRate:      *tickRate,
-		Hostname:      *hostname,
+		LoginVT:               *loginVT,
+		ScreensaverVT:         *screensaverVT,
+		IdleTimeout:           *idleTimeout,
+		TickRate:              *tickRate,
+		StatusRefreshInterval: *statusInterval,
+		Hostname:              *hostname,
 	}
 
 	// On SIGINT/SIGTERM, daemon.Run restores the login VT before
