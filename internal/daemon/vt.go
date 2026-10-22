@@ -70,6 +70,16 @@ func openScreensaverVT(ctrl *os.File, preferredVT int) (int, *os.File, error) {
 	return vtNum, fd, nil
 }
 
+// VT reports the screensaver VT number actually in use - the preferred one
+// passed to NewManager, or whatever VT_OPENQRY allocated if that one wasn't
+// available. Opening a VT device doesn't claim it exclusively, so whatever
+// this number is, another process (a stray getty is the usual culprit) can
+// still be attached to the same device and write to it outside nodematrix's
+// knowledge; logging it is what makes that discoverable after the fact.
+func (m *Manager) VT() int {
+	return m.screensaverVT
+}
+
 // Show switches the foreground VT to the screensaver's VT.
 func (m *Manager) Show() error {
 	return vtActivateAndWait(m.ctrl, m.screensaverVT)
