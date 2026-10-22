@@ -1,0 +1,37 @@
+---
+# Installs/upgrades the nodematrix .deb from a GitHub release onto the
+# target nodes. The package's own postinst script (see packaging/postinst.sh)
+# handles enabling and (re)starting the systemd unit, so there is nothing
+# else to do here - this task just gets the right .deb onto the box and
+# lets dpkg/apt take it from there, which is also why re-running this with
+# the same nodematrix_version is a no-op on a box that already has it.
+#
+# This does NOT apply the console=tty1 kernel parameter prerequisite - see
+# set-console-tty1.yaml for that (one-time, requires a reboot to take
+# effect, deliberately kept separate from routine version upgrades).
+#
+# `hosts: all` below is a generic default - adjust it to whatever inventory
+# group actually covers your nodematrix nodes before running this for real.
+#
+# Usage: ansible-playbook deploy-nodematrix.yaml -e nodematrix_version=0.3.0
+- name: Deploy nodematrix
+  hosts: all
+  become: yes
+  vars:
+    nodematrix_version: "0.3.0"
+    nodematrix_deb_url: "https://github.com/arkane-systems/nodematrix/releases/download/v{{ nodematrix_version }}/nodematrix_{{ nodematrix_version }}_amd64.deb"
+
+  tasks:
+    - name: Install nodematrix {{ nodematrix_version }}
+      ansible.builtin.apt:
+        deb: "{{ nodematrix_deb_url }}"
+
+    - name: Confirm the service is active
+      ansible.builtin.command: systemctl is-active nodematrix
+      register: nodematrix_active
+      changed_when: false
+      failed_when: false
+
+    - name: Report service state
+      ansible.builtin.debug:
+        msg: "nodematrix on {{ inventory_hostname }}: {{ nodematrix_active.stdout }}"
